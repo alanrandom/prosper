@@ -8,15 +8,11 @@ import { getDay } from 'date-fns/getDay';
 import { enUS } from 'date-fns/locale/en-US';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { useEffect, useState } from 'react';
-import { MOCK_SLOT_DATA } from './models/mock-slot-data';
-import { AssessmentSlot, MOCK_ASSESSMENT_SLOTS } from './models/assessment-slot';
-import { psychologist, psychologist2, therapist } from './models/mock-clinician';
+import { psychologist2, therapist } from './models/mock-clinician';
 import styles from './EventModal.module.css';
 import { patient } from './models/mock-patient';
 import { Appointment, AvailableAppointmentSlot } from './models/appointment';
-import Dropdown from './dropdown';
-import { getPsychologistSlots } from './utils/assessment-slots';
-import DatePicker from './dropdown';
+import { getPsychologistSlots, getTherapistSlots } from './utils/assessment-slots';
 import DateDropdown from './dropdown';
 
 const locales = {
@@ -94,16 +90,29 @@ export default function MyCalendar() {
   const [events, setEvents] = useState<EventType[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [showSecondModal, setShowSecondModal] = useState(false);
-  const [selectedFollowup, setSelectedFollowup] = useState<Date | null>(null);
-  const [followupOptions, setFollowupOptions] = useState<Date[]>([]);
+  const [selectedFollowup, setSelectedFollowup] = useState<string | null>(null);
+  const [followupOptions, setFollowupOptions] = useState<string[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<EventType | null>(null);
 
   useEffect(() => {
       async function loadEvents() {
-        // Normally would load from the availableSlots DB.
-          const availableSlots = getPsychologistSlots(psychologist2.availableSlots, psychologist2, true)
-          const uniqueStartsOnly = Array.from(new Set(availableSlots.map((dates) => dates[0])))
-          const starts = uniqueStartsOnly.map((date) => startToEvent(date))
+          // Normally would get all availableSlots from all psychologists. 
+          const availabilitiesSet = new Set<string>()
+          for (let idx = 0; idx < doctors.length; idx++) {
+            const doctor = doctors[idx]
+            if (doctor.clinicianType == "THERAPIST") {
+              const availableSlots = getTherapistSlots(doctor.availableSlots, doctor, true)
+              for (const slot of availableSlots) {
+                availabilitiesSet.add(slot.toISOString())
+              }
+            } else {
+              const availableSlots = getPsychologistSlots(doctor.availableSlots, doctor, true)
+              for (const slotPair of availableSlots) {
+                availabilitiesSet.add(slotPair[0].toISOString())
+              }
+            }
+          }                
+          const starts = Array.from(availabilitiesSet).map((date) => startToEvent(new Date(date)))
           setEvents(starts)
       }
 
@@ -143,27 +152,33 @@ export default function MyCalendar() {
         updatedAt: now,
       }
       therapist.appointments = [...therapist.appointments, newAppointment]
+      //We have no DB so just adding the calls in comments
+      //appointmentsAPI.addAppointments(newAppointment)
+      // AvailabilityAppointmentSlotDB.update(therapist, availableSlots)
       closeModal()
 
     } else {
       //Psychologist path is a bit harder. Need to schedule followup and append 2 appointments. We will do that on separate modal.
       const psychologistOptions = getPsychologistSlots(psychologist2.availableSlots, psychologist2, true, eventToAvailSlot(selectedEvent))
-      const followupOptions = psychologistOptions.map((slot) => slot[1])
-      setFollowupOptions(followupOptions)
+      const followups = psychologistOptions.map((slot) => slot[1])
+
+      setFollowupOptions(followups.map((followup) => followup.toISOString()))
       setShowSecondModal(true);
     }
   };
 
-  const handleSaveFollowup = async (followup: Date | null) => {
-    console.log("huh why broken")
-    console.log(followup)
+  const handleSaveFollowup = async (followup: string | null) => {
+    if (!followup) {
+      alert("please select a valid followup date (default is shown but is null)")
+      closeModal()
+    }
     const now = new Date(Date.now())
     const newAppointment: Appointment = {
       id: "newAptId",
       patientId: patient.id,
       clinicianId: psychologist2.id,
       scheduledFor: selectedEvent?.start || now,
-      appointmentType: "THERAPY_INTAKE",
+      appointmentType: "ASSESSMENT_SESSION_1",
       status: "UPCOMING",
       createdAt: now,
       updatedAt: now,
@@ -172,17 +187,21 @@ export default function MyCalendar() {
       id: "newAptId",
       patientId: patient.id,
       clinicianId: psychologist2.id,
-      scheduledFor: followup || now,
-      appointmentType: "THERAPY_INTAKE",
+      scheduledFor: new Date(followup || now),
+      appointmentType: "ASSESSMENT_SESSION_2",
       status: "UPCOMING",
       createdAt: now,
       updatedAt: now,
     }
+
     psychologist2.appointments = [...psychologist2.appointments, newAppointment, secondAppointment]
-    psychologist2.availableSlots = psychologist2.availableSlots.filter((slot) => slot.date != followup && slot.date != selectedEvent?.start)
+    psychologist2.availableSlots = psychologist2.availableSlots.filter((slot) => slot.date.toISOString() != followup && slot.date.toISOString() != selectedEvent?.start.toISOString())
     const availableSlots = getPsychologistSlots(psychologist2.availableSlots, psychologist2, true)
     const uniqueStartsOnly = Array.from(new Set(availableSlots.map((dates) => dates[0])))
     const starts = uniqueStartsOnly.map((date) => startToEvent(date))
+    //We have no DB so just adding the calls in comments
+    //appointmentsAPI.addAppointments([newAppointment, secondAppointment])
+    // AvailabilityAppointmentSlotDB.update(psychologist2, availableSlots)
     setEvents(starts)
     closeModal()
   }

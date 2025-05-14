@@ -47,6 +47,8 @@ export function getPsychologistSlots(
         psychologist.maxWeeklyAppointments,
         existingAppointments,
     ))
+    console.log(existingAppointments)
+    console.log(psychologist.appointments)
 
     const offerableSlotPairs: [Date, Date][] = [];
     for (let firstIdx = 0; firstIdx < availableSlots.length; firstIdx++) {
