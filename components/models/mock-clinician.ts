@@ -11,7 +11,7 @@ export const psychologist: Clinician = {
   appointments: [],
   availableSlots: [],
   maxDailyAppointments: 2,
-  maxWeeklyAppointments: 2,
+  maxWeeklyAppointments: 8,
   createdAt: new Date(),
   updatedAt: new Date(),
 };
@@ -50,7 +50,7 @@ export const psychologist2: Clinician = {
     updatedAt: slot.date,
   })),
   maxDailyAppointments: 2,
-  maxWeeklyAppointments: 2,
+  maxWeeklyAppointments: 8,
   createdAt: new Date(),
   updatedAt: new Date(),
 };

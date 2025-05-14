@@ -84,7 +84,6 @@ function startToEvent(slot: Date): EventType {
   }
 }
 
-
 export default function MyCalendar() {
   const [checked, setChecked] = useState<boolean>(true); //true means therapist
   const [events, setEvents] = useState<EventType[]>([]);
